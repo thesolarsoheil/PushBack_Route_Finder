@@ -1,0 +1,374 @@
+ #include <cmath>
+#include <cstdlib> // For rand() and srand()
+#include <ctime>   // For time()
+#include <iostream>
+#include <optional>
+#include <vector>
+
+class depo {
+public:
+  int max_cap;
+  int curr;
+};
+
+class node {
+public:
+  float x;
+  float y;
+  float bonus;
+  float blue;
+  float red;
+  depo deposite;
+  float end;
+};
+
+class V_state {
+public:
+  int node_id;
+  float balls;
+  float time;
+  float node_n;
+  float score;
+};
+
+float e = -(1 * 10 ^ 9);
+float max_time = 200;
+int branch_counter = 0;
+float max_score = 0;
+std::vector<int> max_path;
+
+depo depo0 = {0, 0};
+depo depo1 = {15, 0};
+depo depo2 = {7, 0};
+depo depo3 = {7, 0};
+depo depo4 = {15, 0};
+std::vector<depo> depo_holder = {depo0, depo1, depo2, depo3, depo4};
+
+std::vector<node> node_holder;
+std::vector<std::vector<float>> weight_matrix;
+std::vector<float> potential_scores;
+
+float node_data[140] = {-72, 48,  5, 0, 3, 0, 0,  // 1
+                        -24, 48,  0, 0, 0, 1, 0,  // 2
+                        0,   48,  0, 2, 2, 0, 0,  // 3
+                        24,  48,  0, 0, 0, 1, 0,  // 4
+                        72,  48,  5, 3, 3, 0, 0,  // 5
+                        -24, 24,  0, 2, 2, 0, 0,  // 6
+                        24,  24,  0, 2, 2, 0, 0,  // 7
+                        -12, 12,  0, 0, 0, 2, 0,  // 8
+                        12,  12,  0, 0, 0, 3, 0,  // 9
+                        -60, 0,   6, 6, 0, 0, 1,  // 10
+                        60,  0,   6, 0, 6, 0, 1,  // 11
+                        -12, 12,  0, 0, 0, 3, 0,  // 12
+                        12,  12,  0, 0, 0, 2, 0,  // 13
+                        -24, -24, 0, 2, 2, 0, 0,  // 14
+                        24,  -24, 0, 2, 2, 0, 0,  // 15
+                        -72, -48, 5, 3, 3, 0, 0,  // 16
+                        -24, -48, 0, 0, 0, 4, 0,  // 17
+                        0,   -48, 0, 2, 2, 0, 0,  // 18
+                        24,  -48, 0, 0, 0, 4, 0,  // 19
+                        72,  -48, 5, 3, 3, 0, 0}; // 20
+
+std::vector<std::vector<bool>> connection_matrix =
+
+    {
+        // 1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20
+        {0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0}, // 1
+        {1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 2
+        {0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 3
+        {0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 4
+        {0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0}, // 5
+        {1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0}, // 6
+        {0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1}, // 7
+        {0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 8
+        {0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 9
+        {1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0}, // 10
+        {0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1}, // 11
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0}, // 12
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0}, // 13
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0}, // 14
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1}, // 15
+        {0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0}, // 16
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0}, // 17
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0}, // 18
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1}, // 19
+        {0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0}, // 20
+};
+
+void init_nodes();
+
+void init_weight_matrix();
+
+float shortest_path(int start_node, int end_node,
+                    std::vector<std::vector<float>> local_weight_matrix);
+
+void branch(V_state in, std::vector<int> visited_nodes);
+
+float weight(node start, node end);
+
+std::vector<float>
+matrix_vector_multiply(std::vector<float> vector,
+                       std::vector<std::vector<float>> matrix);
+
+std::vector<std::vector<float>>
+matrix_matrix_multiply(std::vector<std::vector<float>> matrix1,
+                       std::vector<std::vector<float>> matrix2);
+
+V_state set_V(V_state in_V, int to_node_id, float path_length);
+
+int main() {
+
+  init_nodes();
+  init_weight_matrix();
+  /*
+    std::vector<std::vector<float>> matrix1 = {
+        {1, 2, -1}, {3, 4, -1}, {5, 6, -1}};
+
+    std::vector<std::vector<float>> matrix2 = {
+        {5, 6, 7}, {8, 9, 10}, {-1, -1, -1}};
+    std::vector<std::vector<float>> matrix3 =
+        matrix_matrix_multiply(matrix1, matrix2);
+
+      for (int i = 0; i < matrix3.size(); i++) {
+        for (int j = 0; j < matrix3.size(); j++) {
+          std::cout << matrix3[i][j] << " ";
+        }
+        std::cout << std::endl;
+      }*/
+
+  int start_node = 9;
+  V_state start_V = {start_node, 1, 0, 0, 0};
+  std::vector<int> visited_nodes(20, -1);
+
+  branch(start_V, visited_nodes);
+  /*
+  for (int i = 0; i < potential_scores.size(); i++) {
+    max_score = std::max(max_score, potential_scores[i]);
+  }*/
+  std::cout << "max path: ";
+  std::vector<int> formated_path(20, -1);
+
+  for (int i = 0; i < max_path.size(); i++) {
+    if (max_path[i] != -1) {
+      formated_path[max_path[i]] = i + 1;
+    }
+  }
+  for (int i = 0; i < formated_path.size(); i++) {
+    std::cout << formated_path[i] << " ";
+  }
+  std::cout << " \n max score: " << max_score << std::endl;
+  std::cout << "branch count: " << branch_counter << std::endl;
+
+  /*
+  std::vector<float> weight_vector = {0, e, e, e};
+  std::vector<float> ball_vector = {1, e, e, e};
+
+  std::vector<std::vector<float>> A_zero = {{e, e, e, e}, //
+                                            {3, e, 2, 2}, //
+                                            {3, 2, e, 5}, //
+                                            {3, 2, 5, e}};
+
+  std::vector<std::vector<float>> A_one = {{2, 4}, //
+                                           {3, 5}};
+
+  std::vector<std::vector<float>> A_squared =
+      matrix_matrix_multiply(A_zero, A_zero);
+
+  std::vector<std::vector<float>> A_cubed = matrix_matrix_multiply(
+      A_squared, A_zero);
+
+
+
+  for (int i = 0; i < A_squared.size(); i++) {
+    for (int j = 0; j < A_squared.size(); j++) {
+      std::cout << fmaxf(fmaxf(A_zero[i][j], A_squared[i][j]), A_cubed[i][j]) <<
+  " ";
+    }
+    std::cout << std::endl;
+  }
+  */
+  return 0;
+}
+
+void branch(V_state in, std::vector<int> visited_nodes) {
+  visited_nodes[in.node_id] = in.node_n; // mark node as visited
+  std::vector<std::vector<float>> local_weight_matrix;
+  for (int i = 0; i < 20; i++) {
+    if (visited_nodes[i] != -1) {
+      local_weight_matrix.push_back(
+          weight_matrix[i]); // if node is visited, add weights
+    } else {
+      std::vector<float> column(20, -1);
+      local_weight_matrix.push_back(
+          column); // if node is not visited, add column of -1
+    }
+  }
+  int local_dimension = local_weight_matrix.size(); // will be 20
+  // std::cout << "local dimension " << local_dimension << std::endl;
+  bool end = true;
+  std::vector<bool> checked_ends(20, false);
+  for (int i = 0; i < local_dimension; i++) {
+    for (int j = 0; j < 20; j++) {
+      // std::cout << " check branch" << std::endl;
+      if (((local_weight_matrix[i][j] != -1) && (visited_nodes[j] == -1)) &&
+          (checked_ends[j] == true)) {
+        float path_length = shortest_path(in.node_id, j, local_weight_matrix);
+        /*
+        std::cout << "path from " << in.node_id << " to " << j << std::endl;
+        std::cout << "segment from " << i << " to " << j << std::endl;
+        std::cout << "segment length " << path_length << std::endl;
+        */
+        V_state out = set_V(in, j, path_length);
+        if (out.time < max_time) {
+          end = false;
+          branch_counter++;
+          // std::cout << "branch counter " << branch_counter << std::endl;
+          branch(out, visited_nodes);
+        }
+      }
+      checked_ends[j] = true; // mark end as checked. will not check any other
+                              // path to this end
+    }
+  }
+  if (end == true) {
+    potential_scores.push_back(in.score);
+    if (in.score > max_score) {
+      max_score = in.score;
+      max_path = visited_nodes;
+    }
+    // std::cout << "potential scores " << potential_scores.size() << std::endl;
+
+    /*
+    std::cout << "path: ";
+    for (int i = 0; i < 20; i++) {
+      std::cout << visited_nodes[i] << " ";
+    }
+    std::cout << "\n";
+    std::cout << "path length: " << in.time << std::endl;
+    /*
+    if (potential_scores.size() > 10) {
+      std::abort();
+    }
+     std::cout << "max score " << max_score << std::endl;
+     */
+  }
+  visited_nodes[in.node_id] = -1;
+}
+
+float shortest_path(int start_node, int end_node,
+                    std::vector<std::vector<float>> local_weight_matrix) {
+  float chosen_path = 100000;
+  std::vector<std::vector<float>> exponential_weight_matrix =
+      local_weight_matrix;
+  for (int i = 0; i < 20; i++) {
+    float ith_path = exponential_weight_matrix[start_node][end_node];
+    if ((ith_path < chosen_path) && (ith_path != -1)) {
+      chosen_path = ith_path;
+    }
+    exponential_weight_matrix =
+        matrix_matrix_multiply(exponential_weight_matrix, local_weight_matrix);
+  }
+  return chosen_path;
+}
+
+V_state set_V(V_state in_V, int to_node_id, float path_length) {
+  V_state out_V;
+  int added_score = 0;
+  out_V.node_id = to_node_id;
+  out_V.balls = in_V.balls + node_holder[to_node_id].blue;
+  while (node_holder[to_node_id].deposite.max_cap >
+             node_holder[to_node_id].deposite.curr &&
+         out_V.balls > 0) {
+    node_holder[to_node_id].deposite.curr += 1;
+    out_V.balls -= 1;
+    added_score += 1;
+  }
+  out_V.time = in_V.time + path_length;
+  out_V.node_n = in_V.node_n + 1;
+  out_V.score = in_V.score + added_score;
+  return out_V;
+}
+
+void init_nodes() {
+  int node_array_size = sizeof(node_data) / sizeof(node_data[0]);
+  for (int i = 0; i < node_array_size; i += 7) {
+    node ith_node;
+    ith_node.x = node_data[i];
+    ith_node.y = node_data[i + 1];
+    ith_node.bonus = node_data[i + 2];
+    ith_node.blue = node_data[i + 3];
+    ith_node.red = node_data[i + 4];
+    ith_node.deposite = depo_holder[node_data[i + 5]];
+    ith_node.end = node_data[i + 6];
+    node_holder.push_back(ith_node);
+  }
+}
+
+void init_weight_matrix() {
+  for (int i = 0; i < 20; i++) {
+    std::vector<float> row;
+    for (int j = 0; j < 20; j++) {
+      if (connection_matrix[i][j] == 1) {
+        row.push_back(weight(node_holder[i], node_holder[j]));
+      } else {
+        row.push_back(-1);
+      }
+    }
+    weight_matrix.push_back(row);
+  }
+}
+
+float weight(node start, node end) {
+  return sqrt(pow(start.x - end.x, 2) + pow(start.y - end.y, 2));
+}
+
+std::vector<float>
+matrix_vector_multiply(std::vector<float> vector,
+                       std::vector<std::vector<float>> matrix) {
+  std::vector<float> result;
+  float entry;
+  float min_entry;
+  for (int i = 0; i < vector.size(); i++) {
+    min_entry = 100000;
+    for (int j = 0; j < vector.size(); j++) {
+
+      if (!(vector[j] == -1) && !(matrix[j][i] == -1)) {
+        entry = vector[j] + matrix[j][i];
+        if (entry < min_entry) {
+          min_entry = entry;
+        }
+      }
+    }
+    if (min_entry == 100000) {
+      min_entry = -1;
+    }
+    result.push_back(min_entry);
+  }
+  return result;
+}
+
+std::vector<std::vector<float>>
+matrix_matrix_multiply(std::vector<std::vector<float>> matrix1,
+                       std::vector<std::vector<float>> matrix2) {
+  std::vector<std::vector<float>> result;
+  int size = fmaxf(matrix2.size(), matrix2[0].size());
+
+  for (int i = 0; i < size; i++) {
+    std::vector<float> column = matrix_vector_multiply(matrix2[i], matrix1);
+
+    result.push_back(column);
+  }
+  /*
+  for (int i = 0; i < result.size(); i++) {
+    for (int j = 0; j < result[i].size(); j++) {
+      if (result[j][i] == -1) {
+        std::cout << "e ";
+      } else {
+        std::cout << result[j][i] << " ";
+      }
+    }
+    std::cout << std::endl;
+  }
+  */
+  return result;
+}
